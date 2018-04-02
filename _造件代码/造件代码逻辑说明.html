@@ -1,0 +1,69 @@
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <title></title>
+<style id="system" type="text/css">h1,h2,h3,h4,h5,h6,p,blockquote {    margin: 0;    padding: 0;}body {    font-family: "Helvetica Neue", Helvetica, "Hiragino Sans GB", Arial, sans-serif;    font-size: 13px;    line-height: 18px;    color: #737373;    margin: 10px 13px 10px 13px;}a {    color: #0069d6;}a:hover {    color: #0050a3;    text-decoration: none;}a img {    border: none;}p {    margin-bottom: 9px;}h1,h2,h3,h4,h5,h6 {    color: #404040;    line-height: 36px;}h1 {    margin-bottom: 18px;    font-size: 30px;}h2 {    font-size: 24px;}h3 {    font-size: 18px;}h4 {    font-size: 16px;}h5 {    font-size: 14px;}h6 {    font-size: 13px;}hr {    margin: 0 0 19px;    border: 0;    border-bottom: 1px solid #ccc;}blockquote {    padding: 13px 13px 21px 15px;    margin-bottom: 18px;    font-family:georgia,serif;    font-style: italic;}blockquote:before {    content:"C";    font-size:40px;    margin-left:-10px;    font-family:georgia,serif;    color:#eee;}blockquote p {    font-size: 14px;    font-weight: 300;    line-height: 18px;    margin-bottom: 0;    font-style: italic;}code, pre {    font-family: Monaco, Andale Mono, Courier New, monospace;}code {    background-color: #fee9cc;    color: rgba(0, 0, 0, 0.75);    padding: 1px 3px;    font-size: 12px;    -webkit-border-radius: 3px;    -moz-border-radius: 3px;    border-radius: 3px;}pre {    display: block;    padding: 14px;    margin: 0 0 18px;    line-height: 16px;    font-size: 11px;    border: 1px solid #d9d9d9;    white-space: pre-wrap;    word-wrap: break-word;}pre code {    background-color: #fff;    color:#737373;    font-size: 11px;    padding: 0;}@media screen and (min-width: 768px) {    body {        width: 748px;        margin:10px auto;    }}</style><style id="custom" type="text/css"></style></head>
+<body marginheight="0"><h2>说明：2025版与2045版造件代码为同一套，逻辑为混包版本</h2>
+<h3>1.1 造件所用材料</h3>
+<pre><code>2025v3.1版OD矩阵表：2025OD_v31.xlsx
+2045版OD矩阵表: 2045OD_Matrix.xlsx
+新版ULD对照表：0103ULD_id.xlsx</code></pre>
+<h3>1.2 造件代码参数</h3>
+<pre><code>parcel_path = r'F:\造件代码\file\2025OD_v31.xlsx'    # 文件路径
+
+parcel_sheet_name = 'Parcel pcs'                    # 表中parcel类的sheet名
+parse_cols = 'B:YS'                                 # 读取列范围
+parse_skip_num = 57                                 # 跳过行数
+parse_cols_split = 5                                # 列索引切片
+air_model_list = ['I', 'D', 'INF']                  # 始发地空侧的类型
+land_model_list = ['R']                             # 始发地陆侧的类型
+parcel_type_name = 'parcel'                         # 包裹类型
+
+wirte_tb_name='i_od_parcel_2025v31_mix'             # 写入的表名
+user_name='root'                                    # 用户名
+password='root'                                     # 密码            
+db_name='my_db'                                     # 数据库
+
+注：smalll类型、irregular类型、nc类型、isb类型皆同上，根据具体表，修改参数</code></pre>
+<h3>1.3 造件思路</h3>
+<pre><code>1）对OD矩阵表做初步的处理，符合python的读取格式；
+2）读取OD矩阵表，做精度控制，根据每个目的地的包裹数据，生成对应的包裹数量；
+3）按照uld与航班，目的地的关系，填充uld编号；
+4）处理时间格式：大于12:00的arrive_time设置为2045-02-07，反之设置为2045-02-08 ；
+5）先造small_id,再造parcel_id;
+6) parcel_id：根据航班对票件进行分组，随机获取20个【打包条件为20】票件，达成一个包，
+  放入uld航空箱;
+7) 遍历uld里的包裹，给包裹内的票件赋parcel_id;</code></pre>
+<h3>2.1 随机取件参数【1%或10%】</h3>
+<pre><code># 数据库参数
+u_name="root"
+pwd="root"
+db="my_db"
+host="localhost"
+# 读取的原表，根据版本选择表名
+read_table="i_od_parcel_2025v31_mix_test"
+
+# 除数：1%取100,10%取10
+divisor = 100 
+# 写入数据库
+sql_table_name=r'i_od_parcel_2025v31_mix_pct1_test'</code></pre>
+<h3>2.2 取件思路</h3>
+<pre><code>1）根据票件的5种类型，对着五种类型的包裹按比例提取，以parcel_id为主
+2）最后把五种包裹合并</code></pre>
+<h3>3.1 不混包参数</h3>
+<pre><code># 数据库参数
+u_name="root"
+pwd="root"
+db="my_db"
+host="localhost"
+# 读取的混包原始表
+read_table="i_od_parcel_2025v31_mix_test"
+# 写入的表名
+sql_table_name='i_od_parcel_2025v31_mix'</code></pre>
+<h3>3.2 不混包思路</h3>
+<pre><code>1）根据原始的混包版本，清空该数据表的parcel_id，重造parcel_id；
+2）空测parcel_id根据uld生成，陆侧parcel_id由航班号生成；【陆侧票件没有uld】
+3）把票件根据航班进行分组，获取每个航班的所有包裹，这样可以在不改变票件目的的情况
+   下，按照票件的流向重新打包成一个包裹（parcel_id）；
+4）再根据每个航班上的包裹，将包裹填充到uld航空箱</code></pre>
+<p>Edit By <a href="http://mahua.jser.me">MaHua</a></p>
+</body></html>
